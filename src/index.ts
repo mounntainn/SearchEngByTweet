@@ -1,24 +1,18 @@
 require('dotenv').config();
 const express = require('express');
-var Twitter = require('twitter');
-
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
-}
+const Twitter = require('twitter');
+const { TranslationServiceClient } = require("@google-cloud/translate").v3;
 
 const app = express();
 const host = process.env.HOST;
 const port = process.env.PORT;
 
-const client = new Twitter({
-  consumer_key: process.env.TWITTER_CONSUMER_KEY,
-  consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-  access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
-  access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-});
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 // space対応の為postに変更 
-app.get('/', (req: any, res: any) => {
+app.get('/', async (req: any, res: any) => {
     var params = {
         q: req.query.words,
         lang: 'en',
@@ -28,8 +22,23 @@ app.get('/', (req: any, res: any) => {
         include_entities: false
     };
     
+    await getTweets(req, res, params);
+    const result = await translate('hello', 'en', 'ja');
+    console.log(result);
+});
+
+app.listen(port, () => console.log(`Successfully served app listening http://${host}:${port}`));
+
+async function getTweets(req: any, res: any, params: any) {
+    const twitterClient = new Twitter({
+      consumer_key: process.env.TWITTER_CONSUMER_KEY,
+      consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+      access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
+      access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+    });
+
     console.log("requested words:", req.query.words);
-    client.get('/search/tweets.json', params, (error: any, tweets: any, response: any) => {
+    twitterClient.get('/search/tweets.json', params, (error: any, tweets: any, response: any) => {
         if (error) {
             console.log(error);
             return;
@@ -43,7 +52,7 @@ app.get('/', (req: any, res: any) => {
         console.log("twitter api query:", params.q);
         
         const datas = tweets.statuses;
-        const texts = datas
+        const result = datas
         // res.send(datas);
             // .filter((x: any) => x.text.match(`/${query}/`))
             .map((x: any) => {
@@ -53,8 +62,27 @@ app.get('/', (req: any, res: any) => {
                     text: x.full_text
                 };
             });
-        res.send(texts);
+            res.send(result);
     });
-});
+}
 
-app.listen(port, () => console.log(`Successfully served app listening http://${host}:${port}`));
+async function translate(text: any, sourceLang: any, targetLang: any) {
+    const apiKey = process.env.GCP_TRANSLATE_API_KEY;
+    const projectId = process.env.GCP_PROJECT_ID;
+    const location = process.env.GCP_LOCATION;
+
+    const translationClient = new TranslationServiceClient({key: apiKey});
+    const req = {
+        parent: translationClient.locationPath(projectId, location),
+        contents: [text],
+        mimeType: "text/plain",
+        sourceLanguageCode: sourceLang,
+        targetLanguageCode: targetLang,
+    };
+    const res = await translationClient.translateText(req);
+    for (const elem of res) {
+        if (elem == null) // なぜかnullがレスポンスに含まれる
+            continue;
+        return elem["translations"][0]["translatedText"];
+    }
+}
