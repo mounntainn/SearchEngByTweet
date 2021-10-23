@@ -17,30 +17,39 @@ const client = new Twitter({
   access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
 });
 
-const query = '"get out of here"'; 
+// space対応の為postに変更 
 app.get('/', (req: any, res: any) => {
     var params = {
-        q: query,
+        q: req.query.words,
         lang: 'en',
         result_type: 'popular',
         count: 10
     };
+    
+    console.log("requested words:", req.query.words);
     client.get('/search/tweets.json', params, (error: any, tweets: any, response: any) => {
         if (error) {
             console.log(error);
             return;
         }
+
         if (response.statusCode !== 200) {
             console.log(response);
             console.log('response error');
         }
 
-        console.log(query);
-        // res.send(tweets);
+        console.log("twitter api query:", params.q);
+        
         const datas = tweets.statuses;
         const texts = datas
+        // res.send(datas);
             // .filter((x: any) => x.text.match(`/${query}/`))
-            .map((x: any) => x.text);
+            .map((x: any) => {
+                return {
+                    name: x.user.name,
+                    text: x.text
+                };
+            });
         res.send(texts);
     });
 });
