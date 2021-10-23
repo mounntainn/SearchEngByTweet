@@ -23,7 +23,9 @@ app.get('/', (req: any, res: any) => {
         q: req.query.words,
         lang: 'en',
         result_type: 'popular',
-        count: 10
+        count: 10,
+        tweet_mode: 'extended',
+        include_entities: false
     };
     
     console.log("requested words:", req.query.words);
@@ -45,9 +47,10 @@ app.get('/', (req: any, res: any) => {
         // res.send(datas);
             // .filter((x: any) => x.text.match(`/${query}/`))
             .map((x: any) => {
+                // console.log(x);
                 return {
                     name: x.user.name,
-                    text: x.text
+                    text: x.full_text
                 };
             });
         res.send(texts);
