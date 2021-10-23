@@ -22,14 +22,19 @@ app.get('/', async (req: any, res: any) => {
         include_entities: false
     };
     
-    await getTweets(req, res, params);
-    const result = await translate('hello', 'en', 'ja');
-    console.log(result);
+    const results = await getTweets(req, res, params);
+    // console.log(results);
+    for (let result of results) {
+        // console.log(result);
+        result['jaText'] = await translate(result.text, 'en', 'ja');
+    }
+    res.send(results);
 });
 
 app.listen(port, () => console.log(`Successfully served app listening http://${host}:${port}`));
 
-async function getTweets(req: any, res: any, params: any) {
+let twitterResult: any = [];    
+async function getTweets(req: any, res: any, params: any): Promise<any> {
     const twitterClient = new Twitter({
       consumer_key: process.env.TWITTER_CONSUMER_KEY,
       consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
@@ -38,7 +43,7 @@ async function getTweets(req: any, res: any, params: any) {
     });
 
     console.log("requested words:", req.query.words);
-    twitterClient.get('/search/tweets.json', params, (error: any, tweets: any, response: any) => {
+    await twitterClient.get('/search/tweets.json', params, (error: any, tweets: any, response: any) => {
         if (error) {
             console.log(error);
             return;
@@ -52,8 +57,7 @@ async function getTweets(req: any, res: any, params: any) {
         console.log("twitter api query:", params.q);
         
         const datas = tweets.statuses;
-        const result = datas
-        // res.send(datas);
+        const results = datas
             // .filter((x: any) => x.text.match(`/${query}/`))
             .map((x: any) => {
                 // console.log(x);
@@ -62,8 +66,13 @@ async function getTweets(req: any, res: any, params: any) {
                     text: x.full_text
                 };
             });
-            res.send(result);
+        twitterResult = results;
+        // console.log(twitterResult);
+        // console.log(results);
     });
+
+    // console.log(twitterResult);
+    return twitterResult;
 }
 
 async function translate(text: any, sourceLang: any, targetLang: any) {
